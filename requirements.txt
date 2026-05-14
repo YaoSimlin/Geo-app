@@ -1,0 +1,22 @@
+--find-links=https://girder.github.io/large_image_wheels GDAL
+geopandas
+leafmap
+owslib
+streamlit
+rasterio
+geoai
+shapely
+requests
+pyproj
+os
+zipfile
+tempfile
+ee
+folium
+time
+base64
+planetary_computer
+geemap
+pystac_client
+imageio
+

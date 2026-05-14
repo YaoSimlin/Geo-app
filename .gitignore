@@ -1,0 +1,33 @@
+# environnement virtuel
+Include/
+Lib/
+Scripts/
+share/
+etc/
+pyvenv.cfg
+
+# cache python
+__pycache__/
+*.pyc
+
+# données sensibles
+data/
+datasets/
+*.csv
+*.xlsx
+*.shp
+*.dbf
+*.shx
+*.prj
+*.cpg
+*.geojson
+*.tif
+*.img
+*.pkl
+
+# secrets streamlit
+.streamlit/secrets.toml
+
+# fichiers temporaires
+temp_gif/
+.cache/
