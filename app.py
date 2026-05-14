@@ -20,7 +20,6 @@ import tempfile
 import zipfile
 import os
 import imageio
-from geoai.change_detection import ChangeDetection
 import tempfile
 from pyproj import Transformer
 from fonction import get_base64_image,compute_indices,fix_crs,compute_nearest,load_clients,get_color,get_name_field,get_stress_color,run_change_detection,build_dynamic_world_map

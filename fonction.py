@@ -19,7 +19,6 @@ from pyproj import Transformer
 import rasterio.features
 import imageio
 import requests
-#from geoai.change_detection import ChangeDetection
 import tempfile
 from rasterio.mask import mask
 from shapely.geometry import shape
