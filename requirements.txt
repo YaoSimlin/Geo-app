@@ -1,3 +1,4 @@
+geoai
 streamlit
 geopandas
 leafmap
