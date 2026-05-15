@@ -2,7 +2,6 @@
 streamlit
 geopandas
 leafmap
-geoai
 rasterio
 shapely
 requests
