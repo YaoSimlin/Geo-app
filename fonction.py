@@ -19,6 +19,7 @@ from pyproj import Transformer
 import rasterio.features
 import imageio
 import requests
+#from geoai.change_detection import ChangeDetection
 import tempfile
 from rasterio.mask import mask
 from shapely.geometry import shape
@@ -660,7 +661,7 @@ def dynamic_world_timelapse(geometry, start_year=2020, end_year=2026):
     try:
         ee.Initialize(project='ancient-lattice-491308-n6')
     except:
-        ee.Authenticate()
+        #ee.Authenticate()
         ee.Initialize(project='ancient-lattice-491308-n6')
 
     # =========================

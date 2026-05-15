@@ -29,7 +29,7 @@ from fonction import get_dynamic_world_series,dynamic_world_timelapse
 try:
         ee.Initialize(project='ancient-lattice-491308-n6')
 except:
-        ee.Authenticate()
+        #ee.Authenticate()
         ee.Initialize()
 
 st.set_page_config(layout="wide")
