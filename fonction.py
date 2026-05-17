@@ -34,17 +34,29 @@ from google.oauth2 import service_account
 def init_ee():
 
     try:
+
+        private_key = st.secrets["EARTHENGINE_PRIVATE_KEY"].replace("\\n", "\n")
+
         credentials = service_account.Credentials.from_service_account_info(
             {
                 "type": "service_account",
+                "project_id": st.secrets["EARTHENGINE_PROJECT_ID"],
+                "private_key_id": st.secrets["EARTHENGINE_PRIVATE_KEY_ID"],
+                "private_key": private_key,
                 "client_email": st.secrets["EARTHENGINE_SERVICE_ACCOUNT"],
-                "private_key": st.secrets["EARTHENGINE_PRIVATE_KEY"],
+                "client_id": st.secrets["EARTHENGINE_CLIENT_ID"],
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_x509_cert_url": st.secrets["EARTHENGINE_CLIENT_CERT_URL"]
             },
             scopes=["https://www.googleapis.com/auth/earthengine"],
         )
 
-        ee.Initialize(credentials, project='ancient-lattice-491308-n6')
+        ee.Initialize(
+            credentials,
+            project=st.secrets["EARTHENGINE_PROJECT"]
+        )
 
         return True
 
@@ -52,11 +64,7 @@ def init_ee():
         st.error(f"Erreur Earth Engine : {e}")
         return False
 
-# lancement
 init_ee()
-
-
-
 
 
 def get_base64_image(image_path):
@@ -408,45 +416,45 @@ def compute_ndvi_raster(path):
 # =========================
 # 🧠 Change Detection
 # =========================
-def run_change_detection(lat, lon):
+# def run_change_detection(lat, lon):
 
-    t0_url, t1_url = get_best_sentinel_pair(lat, lon)
+#     t0_url, t1_url = get_best_sentinel_pair(lat, lon)
 
-    if t0_url is None:
-        return None, None, None, None
+#     if t0_url is None:
+#         return None, None, None, None
 
-    t0_path = save_raster(t0_url)
-    t1_path = save_raster(t1_url)
+#     t0_path = save_raster(t0_url)
+#     t1_path = save_raster(t1_url)
 
-    detector = ChangeDetection(sam_model_type="vit_h")
+#     #detector = ChangeDetection(sam_model_type="vit_h")
 
-    detector.set_hyperparameters(
-        change_confidence_threshold=145,
-        use_normalized_feature=True,
-        bitemporal_match=True,
-    )
+#     detector.set_hyperparameters(
+#         change_confidence_threshold=145,
+#         use_normalized_feature=True,
+#         bitemporal_match=True,
+#     )
 
-    detector.set_mask_generator_params(
-        points_per_side=16,  # ⚡ adapté Sentinel
-        stability_score_thresh=0.90,
-    )
+#     detector.set_mask_generator_params(
+#         points_per_side=16,  # ⚡ adapté Sentinel
+#         stability_score_thresh=0.90,
+#     )
 
-    results = detector.detect_changes(
-        t0_path,
-        t1_path,
-        output_path="mask.tif",
-        export_probability=True,
-        probability_output_path="proba.tif",
-        return_detailed_results=True,
-    )
+#     results = detector.detect_changes(
+#         t0_path,
+#         t1_path,
+#         output_path="mask.tif",
+#         export_probability=True,
+#         probability_output_path="proba.tif",
+#         return_detailed_results=True,
+#     )
 
-    # NDVI
-    ndvi_t0 = compute_ndvi_raster(t0_path)
-    ndvi_t1 = compute_ndvi_raster(t1_path)
+#     # NDVI
+#     ndvi_t0 = compute_ndvi_raster(t0_path)
+#     ndvi_t1 = compute_ndvi_raster(t1_path)
 
-    ndvi_change = ndvi_t1 - ndvi_t0
+#     ndvi_change = ndvi_t1 - ndvi_t0
 
-    return results, "mask.tif", "proba.tif", ndvi_change
+#     return results, "mask.tif", "proba.tif", ndvi_change
 
 
 def dynamic_world_change(geometry, start_date="2020-01-01", end_date="2026-03-31"):
@@ -454,7 +462,7 @@ def dynamic_world_change(geometry, start_date="2020-01-01", end_date="2026-03-31
     import geemap
 
     #try:
-    ee.Initialize(project='ancient-lattice-491308-n6')
+    #ee.Initialize(project='ancient-lattice-491308-n6')
     #except:
        # ee.Authenticate()
        # ee.Initialize(project='ancient-lattice-491308-n6')
@@ -571,7 +579,7 @@ def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=No
 
         # 🔥 FIX CRITIQUE (juste ça manquait)
         #try:
-        ee.Initialize(project='ancient-lattice-491308-n6')
+        #ee.Initialize(project='ancient-lattice-491308-n6')
         #except Exception:
         #   ee.Authenticate()
          #   ee.Initialize(project='ancient-lattice-491308-n6')
@@ -693,7 +701,7 @@ def dynamic_world_timelapse(geometry, start_year=2020, end_year=2026):
         return None
 
     #try:
-    ee.Initialize(project='ancient-lattice-491308-n6')
+    #ee.Initialize(project='ancient-lattice-491308-n6')
     #except:
         #ee.Authenticate()
         #ee.Initialize(project='ancient-lattice-491308-n6')

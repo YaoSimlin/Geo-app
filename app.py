@@ -22,12 +22,13 @@ import os
 import imageio
 import tempfile
 from pyproj import Transformer
-from fonction import get_base64_image,compute_indices,fix_crs,compute_nearest,load_clients,get_color,get_name_field,get_stress_color,run_change_detection,build_dynamic_world_map
+from fonction import get_base64_image,compute_indices,fix_crs,compute_nearest,load_clients,get_color,get_name_field,get_stress_color,build_dynamic_world_map
 from fonction import get_client_geometry,load_uploaded_geometry,create_hls_timeseries,get_best_sentinel_pair,save_raster,compute_ndvi_raster,dynamic_world_change
 from fonction import get_dynamic_world_series,dynamic_world_timelapse,init_ee
 
+init_ee()
 
-ee.Initialize(project='ancient-lattice-491308-n6')
+#ee.Initialize(project='ancient-lattice-491308-n6')
 
 
 st.set_page_config(layout="wide")
