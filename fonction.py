@@ -25,6 +25,41 @@ from rasterio.mask import mask
 from shapely.geometry import shape
 
 
+
+from google.oauth2 import service_account
+
+# =========================
+# INITIALISATION EARTH ENGINE
+# =========================
+@st.cache_resource
+def init_ee():
+
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            {
+                "type": "service_account",
+                "client_email": st.secrets["EARTHENGINE_SERVICE_ACCOUNT"],
+                "private_key": st.secrets["EARTHENGINE_PRIVATE_KEY"],
+                "token_uri": "https://oauth2.googleapis.com/token",
+            },
+            scopes=["https://www.googleapis.com/auth/earthengine"],
+        )
+
+        ee.Initialize(credentials, project='ancient-lattice-491308-n6')
+
+        return True
+
+    except Exception as e:
+        st.error(f"Erreur Earth Engine : {e}")
+        return False
+
+# lancement
+init_ee()
+
+
+
+
+
 def get_base64_image(image_path):
         with open(image_path, "rb") as f:
             data = f.read()
@@ -419,11 +454,11 @@ def dynamic_world_change(geometry, start_date="2020-01-01", end_date="2026-03-31
     import ee
     import geemap
 
-    try:
-        ee.Initialize(project='ancient-lattice-491308-n6')
-    except:
-        ee.Authenticate()
-        ee.Initialize(project='ancient-lattice-491308-n6')
+    #try:
+    ee.Initialize(project='ancient-lattice-491308-n6')
+    #except:
+       # ee.Authenticate()
+       # ee.Initialize(project='ancient-lattice-491308-n6')
 
     # =========================
     # 🔥 CONVERSION EN EE GEOMETRY  
@@ -536,11 +571,11 @@ def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=No
         import ee
 
         # 🔥 FIX CRITIQUE (juste ça manquait)
-        try:
-            ee.Initialize(project='ancient-lattice-491308-n6')
-        except Exception:
-            ee.Authenticate()
-            ee.Initialize(project='ancient-lattice-491308-n6')
+        #try:
+        ee.Initialize(project='ancient-lattice-491308-n6')
+        #except Exception:
+        #   ee.Authenticate()
+         #   ee.Initialize(project='ancient-lattice-491308-n6')
 
         import geemap.foliumap as geemap
 
@@ -658,11 +693,11 @@ def dynamic_world_timelapse(geometry, start_year=2020, end_year=2026):
     if geometry is None:
         return None
 
-    try:
-        ee.Initialize(project='ancient-lattice-491308-n6')
-    except:
+    #try:
+    ee.Initialize(project='ancient-lattice-491308-n6')
+    #except:
         #ee.Authenticate()
-        ee.Initialize(project='ancient-lattice-491308-n6')
+        #ee.Initialize(project='ancient-lattice-491308-n6')
 
     # =========================
     # 🔥 GEOMETRY

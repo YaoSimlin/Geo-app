@@ -1,7 +1,9 @@
---find-links=https://girder.github.io/large_image_wheels 
+--find-links=https://girder.github.io/large_image_wheels
+
 streamlit
 geopandas
 leafmap
+geoai
 rasterio
 shapely
 requests
@@ -12,3 +14,5 @@ imageio
 geemap
 planetary-computer
 owslib
+earthengine-api
+google-auth
