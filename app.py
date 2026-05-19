@@ -26,10 +26,9 @@ from fonction import get_base64_image,compute_indices,fix_crs,compute_nearest,lo
 from fonction import get_client_geometry,load_uploaded_geometry,create_hls_timeseries,get_best_sentinel_pair,save_raster,compute_ndvi_raster,dynamic_world_change
 from fonction import get_dynamic_world_series,dynamic_world_timelapse,init_ee
 
-init_ee()
-
 #ee.Initialize(project='ancient-lattice-491308-n6')
 
+init_ee()
 
 st.set_page_config(layout="wide")
 
@@ -153,14 +152,14 @@ with col_anim2:
     # -------------------------
     # Chargement données
     # -------------------------
-forest_path = r"C:\Users\Yao Simlin\Downloads\GeoDataAnalystProject\BDGEO_Base_de donnée_CI\disk_2\aires-protegees\forest.shp"
-water_path = r"D:\GeoDataAnalystProject\BDGEO_Base_de donnée_CI\Shape CI\waterways\waterways.shp"
-bassin_path = r"C:\Users\Yao Simlin\Documents\Bassin.shp"
-lake_path =r"C:\Users\Yao Simlin\Documents\Lake.shp"
-parcs_path = r"C:\Users\Yao Simlin\Documents\parcs.shp"
-hydro_path = r"C:\Users\Yao Simlin\Documents\hydrographie.shp"
-parcs_path = r"C:\Users\Yao Simlin\Documents\parcs.shp"
-integrale_path = r"C:\Users\Yao Simlin\Documents\integrale.shp"
+forest_path = r"Data\forest.shp"
+water_path = r"Data\waterways.shp"
+bassin_path = r"Data\Bassin.shp"
+lake_path =r"Data\Lake.shp"
+parcs_path = r"Data\parcs.shp"
+hydro_path = r"Data\hydrographie.shp"
+parcs_path = r"Data\parcs.shp"
+integrale_path = r"Data\integrale.shp"
 
 @st.cache_data(ttl=3600)
 def load_data():
@@ -176,8 +175,8 @@ def load_data():
         # -------------------------
         # 🌍 KBA GLOBAL → FILTRE CI
         # -------------------------
-        kba_path = r"C:\Users\Yao Simlin\Downloads\KBA_Data\KBAsGlobal_2025_September_02\KBAsGlobal_2025_September_02_POL.shp"
-        kba = gpd.read_file(kba_path)
+        kba_path = r"Data\KBAsGlobal_2025_September_02_POL.shp"
+        kba = fix_crs(gpd.read_file(kba_path))
 
         # Bounding box Côte d'Ivoire
         bbox = (-8.6, 4.3, -2.5, 10.8)
@@ -185,11 +184,9 @@ def load_data():
         # Filtrage rapide
         kba = kba.cx[bbox[0]:bbox[2], bbox[1]:bbox[3]]
 
-        kba = kba.to_crs(epsg=4326)
 
-        stress_path = r"C:\Users\Yao Simlin\Downloads\Stress_hydrique.shp"
-        stress_hydrique = gpd.read_file(stress_path)
-        stress_hydrique = stress_hydrique.to_crs(epsg=4326)
+        stress_path = r"Data\Stress_hydrique.shp"
+        stress_hydrique = fix_crs(gpd.read_file(stress_path))
         stress_hydrique = stress_hydrique[[
             "bws_score",
             "bws_label",

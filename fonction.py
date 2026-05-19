@@ -461,11 +461,11 @@ def dynamic_world_change(geometry, start_date="2020-01-01", end_date="2026-03-31
     import ee
     import geemap
 
-    #try:
-    #ee.Initialize(project='ancient-lattice-491308-n6')
-    #except:
-       # ee.Authenticate()
-       # ee.Initialize(project='ancient-lattice-491308-n6')
+    try:
+        ee.Initialize(project='ancient-lattice-491308-n6')
+    except:
+        ee.Authenticate()
+        ee.Initialize(project='ancient-lattice-491308-n6')
 
     # =========================
     # 🔥 CONVERSION EN EE GEOMETRY  
@@ -578,11 +578,11 @@ def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=No
         import ee
 
         # 🔥 FIX CRITIQUE (juste ça manquait)
-        #try:
-        #ee.Initialize(project='ancient-lattice-491308-n6')
-        #except Exception:
-        #   ee.Authenticate()
-         #   ee.Initialize(project='ancient-lattice-491308-n6')
+        try:
+            ee.Initialize(project='ancient-lattice-491308-n6')
+        except Exception:
+            ee.Authenticate()
+            ee.Initialize(project='ancient-lattice-491308-n6')
 
         import geemap.foliumap as geemap
 
