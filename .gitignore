@@ -5,17 +5,13 @@ Scripts/
 share/
 etc/
 pyvenv.cfg
-
 # cache python
 __pycache__/
 *.pyc
-
 # données sensibles
 *.img
-
 # secrets streamlit
 .streamlit/secrets.toml
-
 # fichiers temporaires
 temp_gif/
 .cache/
