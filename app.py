@@ -21,6 +21,7 @@ import zipfile
 import os
 import imageio
 import tempfile
+from pathlib import Path
 from pyproj import Transformer
 from fonction import get_base64_image,compute_indices,fix_crs,compute_nearest,load_clients,get_color,get_name_field,get_stress_color,build_dynamic_world_map
 from fonction import get_client_geometry,load_uploaded_geometry,create_hls_timeseries,get_best_sentinel_pair,save_raster,compute_ndvi_raster,dynamic_world_change
@@ -32,11 +33,14 @@ init_ee()
 
 st.set_page_config(layout="wide")
 
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "Data"
+
     # Initialisation session_state
 if "year" not in st.session_state:
         st.session_state["year"] = 2023
 
-logo_base64 = get_base64_image("logo_nbci.png")
+logo_base64 = get_base64_image(str(BASE_DIR / "logo_nbci.png"))
 
 
 st.markdown(
@@ -152,14 +156,13 @@ with col_anim2:
     # -------------------------
     # Chargement données
     # -------------------------
-forest_path = r"Data\forest.shp"
-water_path = r"Data\waterways.shp"
-bassin_path = r"Data\Bassin.shp"
-lake_path =r"Data\Lake.shp"
-parcs_path = r"Data\parcs.shp"
-hydro_path = r"Data\hydrographie.shp"
-parcs_path = r"Data\parcs.shp"
-integrale_path = r"Data\integrale.shp"
+forest_path = DATA_DIR / "aires-protegees" / "forest.shp"
+water_path = DATA_DIR / "waterways" / "waterways.shp"
+bassin_path = DATA_DIR / "Bassin.shp"
+lake_path = DATA_DIR / "Lake" / "Lake.shp"
+parcs_path = DATA_DIR / "Parcs" / "parcs.shp"
+hydro_path = DATA_DIR / "hydrographie.shp"
+integrale_path = DATA_DIR / "Integrale" / "integrale.shp"
 
 @st.cache_data(ttl=3600)
 def load_data():
@@ -175,7 +178,7 @@ def load_data():
         # -------------------------
         # 🌍 KBA GLOBAL → FILTRE CI
         # -------------------------
-        kba_path = r"Data\KBAsGlobal_2025_September_02_POL.shp"
+        kba_path = DATA_DIR / "KBA" / "KBAsGlobal_2025_September_02_POL.shp"
         kba = fix_crs(gpd.read_file(kba_path))
 
         # Bounding box Côte d'Ivoire
@@ -184,8 +187,7 @@ def load_data():
         # Filtrage rapide
         kba = kba.cx[bbox[0]:bbox[2], bbox[1]:bbox[3]]
 
-
-        stress_path = r"Data\Stress_hydrique.shp"
+        stress_path = DATA_DIR / "Stress_hydrique.shp"
         stress_hydrique = fix_crs(gpd.read_file(stress_path))
         stress_hydrique = stress_hydrique[[
             "bws_score",
