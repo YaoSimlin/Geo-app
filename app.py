@@ -809,7 +809,11 @@ elif mode == "📈 Impact environnemental":
                     zoom=13
                 )
 
-                m.addLayer(img, vis, f"Dynamic World {year}")
+                m.add_layer(
+                    img,
+                    vis,
+                    f"Dynamic World {year}"
+                )
 
                 with map_placeholder:
                     m.to_streamlit(height=600)
