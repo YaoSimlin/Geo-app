@@ -452,7 +452,9 @@ def dynamic_world_change(geometry, start_date="2020-01-01", end_date="2026-03-31
     import ee
     import geemap
 
-    if not ee.data._initialized:
+    try:
+        ee.Number(1).getInfo()
+    except:
         init_ee()
 
     # try:
@@ -579,7 +581,9 @@ def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=No
         #     ee.Initialize(project='ancient-lattice-491308-n6')
 
         import geemap.foliumap as geemap
-        if not ee.data._initialized:
+        try:
+            ee.Number(1).getInfo()
+        except:
             init_ee()
     except Exception as e:
         import streamlit as st
