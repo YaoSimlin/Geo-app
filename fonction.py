@@ -571,18 +571,18 @@ def dynamic_world_change(geometry, start_date="2020-01-01", end_date="2026-03-31
 
 def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=None):
     import ee
-    import geemap
+    import leafmap.foliumap as leafmap
 
     try:
         ee.Number(1).getInfo()
     except:
         init_ee()
 
-    m = geemap.Map(center=(lat, lon), zoom=13)
+    m = leafmap.Map(center=(lat, lon), zoom=13)
 
-    m.add_ee_layer(dw_start, vis, "Occupation du sol (avant)")
-    m.add_ee_layer(dw_end, vis, "Occupation du sol (après)")
-    m.add_ee_layer(change, {"min": -5, "max": 5, "palette": ["red", "white", "green"]}, "Changement")
+    m.addLayer(dw_start, vis, "Occupation du sol (avant)")
+    m.addLayer(dw_end, vis, "Occupation du sol (après)")
+    m.addLayer(change, {"min": -5, "max": 5, "palette": ["red", "white", "green"]}, "Changement")
 
     # -------------------------
     # 📍 Ajouter la géométrie si disponible
