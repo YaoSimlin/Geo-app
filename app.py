@@ -791,7 +791,7 @@ elif mode == "📈 Impact environnemental":
 
             for i, (year, img) in enumerate(images):
 
-                import geemap.foliumap as geemap
+                import leafmap.foliumap as leafmap
 
                 coords = ee_geom.bounds().getInfo()["coordinates"][0]
 
@@ -804,7 +804,7 @@ elif mode == "📈 Impact environnemental":
                 center_lat = (miny + maxy) / 2
                 center_lon = (minx + maxx) / 2
 
-                m = geemap.Map(
+                m = leafmap.Map(
                     center=[center_lat, center_lon],
                     zoom=13
                 )
