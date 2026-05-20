@@ -36,18 +36,14 @@ def init_ee():
 
     try:
 
-        service_account_info = json.loads(
-            st.secrets["EARTHENGINE_KEY"]
-        )
-
         credentials = service_account.Credentials.from_service_account_info(
-            service_account_info,
+            st.secrets["gcp_service_account"],
             scopes=["https://www.googleapis.com/auth/earthengine"]
         )
 
         ee.Initialize(
             credentials,
-            project=service_account_info["project_id"]
+            project=st.secrets["gcp_service_account"]["project_id"]
         )
 
         return True
@@ -55,7 +51,7 @@ def init_ee():
     except Exception as e:
         st.error(f"Erreur Earth Engine : {e}")
         return False
-
+    
 init_ee()
 
 
