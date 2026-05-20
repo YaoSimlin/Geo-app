@@ -35,10 +35,27 @@ def init_ee():
 
     try:
 
-        private_key = st.secrets["EARTHENGINE_PRIVATE_KEY"].replace("\\n", "\n")
+        raw_secret = st.secrets["EARTHENGINE_PRIVATE_KEY"].strip()
+        if raw_secret.startswith("{") and "private_key" in raw_secret:
+            import json
+            service_account_info = json.loads(raw_secret)
+            credentials = service_account.Credentials.from_service_account_info(
+                service_account_info,
+                scopes=["https://www.googleapis.com/auth/earthengine"],
+            )
+        else:
+            private_key = raw_secret
+            if "-----BEGIN PRIVATE KEY-----" not in private_key:
+                private_key = private_key.replace("\\n", "\n").strip()
 
-        credentials = service_account.Credentials.from_service_account_info(
-            {
+            if not private_key.startswith("-----BEGIN PRIVATE KEY-----") or not private_key.endswith("-----END PRIVATE KEY-----"):
+                raise ValueError(
+                    "EARTHENGINE_PRIVATE_KEY is not a valid PEM private key. "
+                    "Use the raw key text including BEGIN/END markers, or store it with escaped '\\n' line breaks."
+                )
+
+            credentials = service_account.Credentials.from_service_account_info(
+                {
                 "type": "service_account",
                 "project_id": st.secrets["EARTHENGINE_PROJECT_ID"],
                 "private_key_id": st.secrets["EARTHENGINE_PRIVATE_KEY_ID"],
