@@ -36,9 +36,12 @@ geopandas.options.io_engine = "fiona"
 #ee.Initialize(project='ancient-lattice-491308-n6')
 
 
+# 🔥 Convertir les secrets en dict classique
 config = {
-    "credentials": st.secrets["credentials"],
-    "cookie": st.secrets["cookie"]
+    "credentials": {
+        "usernames": dict(st.secrets["credentials"]["usernames"])
+    },
+    "cookie": dict(st.secrets["cookie"])
 }
 
 authenticator = stauth.Authenticate(
@@ -47,7 +50,6 @@ authenticator = stauth.Authenticate(
     config['cookie']['key'],
     config['cookie']['expiry_days']
 )
-
 authenticator.login()
 
 if st.session_state["authentication_status"]:
