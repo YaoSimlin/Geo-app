@@ -570,69 +570,26 @@ def dynamic_world_change(geometry, start_date="2020-01-01", end_date="2026-03-31
 
 
 def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=None):
+    import ee
+    import leafmap
+
     try:
-        import ee
+        ee.Number(1).getInfo()
+    except:
+        init_ee()
 
-        # 🔥 FIX CRITIQUE (juste ça manquait)
-        # try:
-        #     ee.Initialize(project='ancient-lattice-491308-n6')
-        # except Exception:
-        #     ee.Authenticate()
-        #     ee.Initialize(project='ancient-lattice-491308-n6')
+    m = leafmap.Map(center=(lat, lon), zoom=13)
 
-        import geemap.foliumap as geemap
-        try:
-            ee.Number(1).getInfo()
-        except:
-            init_ee()
+    try:
+        m.addLayer(dw_start, vis, "Occupation du sol (avant)")
+        m.addLayer(dw_end, vis, "Occupation du sol (après)")
+        m.addLayer(change, {"min": -5, "max": 5, "palette": ["red", "white", "green"]}, "Changement")
     except Exception as e:
         import streamlit as st
-        st.error(f"Erreur geemap import : {e}")
-        st.stop()
-
-    m = geemap.Map(center=[lat, lon], zoom=13)
-
-    m.addLayer(dw_start, vis, "Occupation du sol (avant)")
-    m.addLayer(dw_end, vis, "Occupation du sol (après)")
-    m.addLayer(change, {"min": -5, "max": 5, "palette": ["red", "white", "green"]}, "Changement")
+        st.warning(f"Impossible d'afficher les couches Earth Engine : {e}. Affichage des données vectorielles uniquement.")
 
     # -------------------------
-    # 🧾 Légende Dynamic World
-    # -------------------------
-    dw_legend = {
-        "Eau": "419BDF",
-        "Arbres": "397D49",
-        "Herbe": "88B053",
-        "Zone inondée": "7A87C6",
-        "Cultures": "E49635",
-        "Arbustes": "DFC35A",
-        "Urbain": "C4281B",
-        "Sol nu": "A59B8F",
-        "Neige / glace": "B39FE1"
-    }
-
-    m.add_legend(
-        title="Occupation du sol (Dynamic World)",
-        legend_dict=dw_legend
-    )
-
-    # -------------------------
-    # 🔄 Légende Changement
-    # -------------------------
-    change_legend = {
-            "Dégradation": "red",
-            "Stable": "white",
-            "Amélioration": "green",
-            "Autres changements": "yellow"
-        }
-
-    m.add_legend(
-        title="Changement",
-        legend_dict=change_legend
-    )
-
-    # -------------------------
-    # 🧭 AFFICHAGE SHAPE
+    # 📍 Ajouter la géométrie si disponible
     # -------------------------
     if geometry is not None:
         try:
