@@ -36,8 +36,10 @@ geopandas.options.io_engine = "fiona"
 #ee.Initialize(project='ancient-lattice-491308-n6')
 
 
-with open("config.yaml") as file:
-    config = yaml.load(file, Loader=SafeLoader)
+config = {
+    "credentials": st.secrets["credentials"],
+    "cookie": st.secrets["cookie"]
+}
 
 authenticator = stauth.Authenticate(
     config['credentials'],
