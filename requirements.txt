@@ -17,3 +17,6 @@ google-auth-oauthlib
 google-api-python-client
 fiona
 openpyxl
+streamlit-authenticator
+PyYAML
+bcrypt
