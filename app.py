@@ -791,28 +791,29 @@ elif mode == "📈 Impact environnemental":
 
             for i, (year, img) in enumerate(images):
 
-                # try:
-                #     ee.Initialize(project='ancient-lattice-491308-n6')
-                # except Exception:
-                #     ee.Authenticate()
-                #     ee.Initialize(project='ancient-lattice-491308-n6')
+                import geemap.foliumap as geemap
 
-                import geemap
-                m = geemap.Map()
                 coords = ee_geom.bounds().getInfo()["coordinates"][0]
+
                 minx = min([c[0] for c in coords])
                 maxx = max([c[0] for c in coords])
+
                 miny = min([c[1] for c in coords])
                 maxy = max([c[1] for c in coords])
 
-                m.fit_bounds([[miny, minx], [maxy, maxx]])
-                m.add_ee_layer(img, vis, f"Dynamic World {year}")
+                center_lat = (miny + maxy) / 2
+                center_lon = (minx + maxx) / 2
 
-                # ✅ CORRECTION ICI
+                m = geemap.Map(
+                    center=[center_lat, center_lon],
+                    zoom=13
+                )
+
+                m.addLayer(img, vis, f"Dynamic World {year}")
+
                 with map_placeholder:
                     m.to_streamlit(height=600)
 
-                # progression
                 progress_bar.progress((i + 1) / total)
 
                 year_text.markdown(f"### Année : {year}")
