@@ -797,7 +797,7 @@ elif mode == "📈 Impact environnemental":
                 #     ee.Authenticate()
                 #     ee.Initialize(project='ancient-lattice-491308-n6')
 
-                import geemap.foliumap as geemap
+                import geemap
                 m = geemap.Map()
                 coords = ee_geom.bounds().getInfo()["coordinates"][0]
                 minx = min([c[0] for c in coords])
@@ -806,7 +806,7 @@ elif mode == "📈 Impact environnemental":
                 maxy = max([c[1] for c in coords])
 
                 m.fit_bounds([[miny, minx], [maxy, maxx]])
-                m.addLayer(img, vis, f"Dynamic World {year}")
+                m.add_ee_layer(img, vis, f"Dynamic World {year}")
 
                 # ✅ CORRECTION ICI
                 with map_placeholder:
