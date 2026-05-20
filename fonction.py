@@ -31,7 +31,6 @@ from google.oauth2 import service_account
 # =========================
 # INITIALISATION EARTH ENGINE
 # =========================
-@st.cache_resource
 def init_ee():
 
     try:
@@ -47,6 +46,10 @@ def init_ee():
         )
 
         return True
+
+    except Exception as e:
+        st.error(f"Erreur Earth Engine : {e}")
+        return False
 
     except Exception as e:
         st.error(f"Erreur Earth Engine : {e}")
