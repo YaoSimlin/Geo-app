@@ -20,6 +20,7 @@ import rasterio.features
 import imageio
 import requests
 import tempfile
+import json
 from rasterio.mask import mask
 from shapely.geometry import shape
 
@@ -452,6 +453,9 @@ def dynamic_world_change(geometry, start_date="2020-01-01", end_date="2026-03-31
     import ee
     import geemap
 
+    if not ee.data._initialized:
+        init_ee()
+
     # try:
     #     ee.Initialize(project='ancient-lattice-491308-n6')
     # except:
@@ -576,7 +580,8 @@ def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=No
         #     ee.Initialize(project='ancient-lattice-491308-n6')
 
         import geemap.foliumap as geemap
-
+        if not ee.data._initialized:
+            init_ee()
     except Exception as e:
         import streamlit as st
         st.error(f"Erreur geemap import : {e}")

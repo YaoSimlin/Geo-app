@@ -29,7 +29,8 @@ geopandas.options.io_engine = "fiona"
 
 #ee.Initialize(project='ancient-lattice-491308-n6')
 
-init_ee()
+if not init_ee():
+    st.stop()
 
 st.set_page_config(layout="wide")
 
