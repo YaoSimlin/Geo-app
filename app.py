@@ -26,25 +26,33 @@ import copy
 import geopandas
 import streamlit_authenticator as stauth
 
-import yaml
-from yaml.loader import SafeLoader
-
 st.set_page_config(layout="wide")
 
 geopandas.options.io_engine = "fiona"
 
 #ee.Initialize(project='ancient-lattice-491308-n6')
 
-
-# 🔥 Conversion COMPLETE des secrets Streamlit en dict Python
-config = copy.deepcopy(dict(st.secrets))
+config = {
+    "credentials": {
+        "usernames": {
+            username: dict(user_data)
+            for username, user_data in st.secrets["credentials"]["usernames"].items()
+        }
+    },
+    "cookie": {
+        "name": st.secrets["cookie"]["name"],
+        "key": st.secrets["cookie"]["key"],
+        "expiry_days": st.secrets["cookie"]["expiry_days"]
+    }
+}
 
 authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days']
+    config["credentials"],
+    config["cookie"]["name"],
+    config["cookie"]["key"],
+    config["cookie"]["expiry_days"]
 )
+
 authenticator.login()
 
 if st.session_state["authentication_status"]:
