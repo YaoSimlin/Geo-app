@@ -37,7 +37,7 @@ def init_ee():
     try:
 
         service_account_info = json.loads(
-            st.secrets["EARTHENGINE_KEY"].replace("\n", "\\n")
+            st.secrets["EARTHENGINE_KEY"]
         )
 
         credentials = service_account.Credentials.from_service_account_info(
