@@ -570,28 +570,63 @@ def dynamic_world_change(geometry, start_date="2020-01-01", end_date="2026-03-31
 
 
 def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=None):
+
     import ee
     import leafmap.foliumap as leafmap
+    import geopandas as gpd
 
     try:
         ee.Number(1).getInfo()
     except:
         init_ee()
 
-    m = leafmap.Map(center=(lat, lon), zoom=13)
+    m = leafmap.Map(center=[lat, lon], zoom=13)
 
-    m.addLayer(dw_start, vis, "Occupation du sol (avant)")
-    m.addLayer(dw_end, vis, "Occupation du sol (après)")
-    m.addLayer(change, {"min": -5, "max": 5, "palette": ["red", "white", "green"]}, "Changement")
+    # =========================
+    # 🌍 Occupation du sol
+    # =========================
+    m.add_ee_layer(
+        ee_object=dw_start,
+        vis_params=vis,
+        name="Occupation du sol (avant)"
+    )
 
-    # -------------------------
-    # 📍 Ajouter la géométrie si disponible
-    # -------------------------
+    m.add_ee_layer(
+        ee_object=dw_end,
+        vis_params=vis,
+        name="Occupation du sol (après)"
+    )
+
+    # =========================
+    # 🔄 Changements
+    # =========================
+    change_vis = {
+        "min": -1,
+        "max": 2,
+        "palette": [
+            "red",      # dégradation
+            "white",    # stable
+            "green"     # amélioration
+        ]
+    }
+
+    m.add_ee_layer(
+        ee_object=change,
+        vis_params=change_vis,
+        name="Changements"
+    )
+
+    # =========================
+    # 📍 Géométrie analysée
+    # =========================
     if geometry is not None:
-        try:
-            import geopandas as gpd
 
-            gdf = gpd.GeoDataFrame(geometry=[geometry], crs="EPSG:4326")
+        try:
+
+            gdf = gpd.GeoDataFrame(
+                geometry=[geometry],
+                crs="EPSG:4326"
+            )
 
             m.add_gdf(
                 gdf,
@@ -599,11 +634,18 @@ def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=No
                 style={
                     "color": "black",
                     "weight": 3,
+                    "fillColor": "black",
                     "fillOpacity": 0
                 }
             )
-        except:
-            pass
+
+        except Exception as e:
+            print("Erreur ajout géométrie :", e)
+
+    # =========================
+    # 🌍 Contrôle couches
+    # =========================
+    m.add_layer_control()
 
     return m
 
