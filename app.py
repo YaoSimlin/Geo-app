@@ -810,10 +810,11 @@ elif mode == "📈 Impact environnemental":
                 )
 
                 m.add_layer(
-                    img,
-                    vis,
-                    f"Dynamic World {year}"
-                )
+                 ee_object=img,
+                vis_params=vis,
+                name=f"Dynamic World {year}"
+                                )
+                    
 
                 with map_placeholder:
                     m.to_streamlit(height=600)
