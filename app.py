@@ -858,7 +858,7 @@ if st.session_state["authentication_status"]:
 
                     year_text.markdown(f"### Année : {year}")
 
-                    time.sleep(1.5)
+                    time.sleep(5.5)
 
         #st.markdown("---")
         #st.subheader("🎬 GIF D'EVOLUTION DE L'OCCUPATION")
