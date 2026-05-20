@@ -6,6 +6,7 @@ share/
 etc/
 pyvenv.cfg
 # cache python
+config.yaml
 __pycache__/
 *.pyc
 # données sensibles
@@ -15,3 +16,4 @@ __pycache__/
 # fichiers temporaires
 temp_gif/
 .cache/
+streamlit-authenticator

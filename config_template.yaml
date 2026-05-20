@@ -1,0 +1,15 @@
+credentials:
+  usernames:
+    user:
+      email: example@mail.com
+      name: User
+      password: HASH
+
+cookie:
+  expiry_days: 30
+  key: CHANGE_ME
+  name: COOKIE_NAME
+
+preauthorized:
+  emails:
+    - example@mail.com
