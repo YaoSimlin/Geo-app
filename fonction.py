@@ -647,6 +647,40 @@ def build_dynamic_world_map(dw_start, dw_end, change, vis, lat, lon, geometry=No
     # =========================
     m.add_layer_control()
 
+        # =========================
+    # 🗂️ LÉGENDE DYNAMIC WORLD
+    # =========================
+    legend_dict = {
+        "Eau": "419BDF",
+        "Forêt": "397D49",
+        "Herbe": "88B053",
+        "Zone inondée": "7A87C6",
+        "Cultures": "E49635",
+        "Arbustes": "DFC35A",
+        "Urbain": "C4281B",
+        "Sol nu": "A59B8F",
+        "Neige": "B39FE1"
+    }
+
+    m.add_legend(
+        title="Occupation du sol",
+        legend_dict=legend_dict
+    )
+
+    # =========================
+    # 🔄 LÉGENDE CHANGEMENTS
+    # =========================
+    change_legend = {
+        "Dégradation": "red",
+        "Stable": "white",
+        "Amélioration": "green"
+    }
+
+    m.add_legend(
+        title="Changements environnementaux",
+        legend_dict=change_legend
+    )
+
     return m
 
 
@@ -752,7 +786,7 @@ def dynamic_world_timelapse(geometry, start_year=2020, end_year=2026):
         except:
             font = ImageFont.load_default()
 
-        draw.text((20, 20), f"Année : {year}", fill="white", font=font)
+        draw.text((20, 20), f"An: {year}", fill="white", font=font)
 
         frames.append(np.array(img_pil))
     # =========================

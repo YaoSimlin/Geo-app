@@ -121,7 +121,7 @@ st.markdown(
             <div class="navbar-title">NSIAGEO</div>
             <div class="marquee">
                 <span>
-                Bienvenue sur NSIAGEO - Suivez l’impact environnemental des clients à financer en temps réel
+                Bienvenue sur NSIAGEO - Suivez l’impact environnemental des clients à financer en quasi temps réel
                 </span>
             </div>
         </div>
