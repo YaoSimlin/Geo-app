@@ -791,11 +791,11 @@ elif mode == "📈 Impact environnemental":
 
             for i, (year, img) in enumerate(images):
 
-                try:
-                    ee.Initialize(project='ancient-lattice-491308-n6')
-                except Exception:
-                    ee.Authenticate()
-                    ee.Initialize(project='ancient-lattice-491308-n6')
+                # try:
+                #     ee.Initialize(project='ancient-lattice-491308-n6')
+                # except Exception:
+                #     ee.Authenticate()
+                #     ee.Initialize(project='ancient-lattice-491308-n6')
 
                 import geemap.foliumap as geemap
                 m = geemap.Map()
