@@ -799,3 +799,448 @@ def dynamic_world_timelapse(geometry, start_year=2020, end_year=2026):
     return gif_path
 
 
+#--------------------------------------------------------------------------------------------
+# Integration des modifcations
+
+# =========================
+# 🦎 ESPÈCES MENACÉES / ENDÉMIQUES PAR KBA
+# =========================
+def normalize_name(s):
+    import unicodedata, re
+    if not isinstance(s, str):
+        return ""
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = s.replace("'", "").replace("’", "")
+    s = re.sub(r"[-–—]", " ", s)          # tous les tirets → espace
+    s = re.sub(r"\s+", " ", s)             # espaces multiples → un seul
+    return s.strip().lower()
+
+
+
+def get_kba_species_key(kba_name):
+    """
+    Convertit le NatName de la couche KBA vers la clé canonique
+    (même espace de normalisation que la colonne Zone de l'Excel).
+    """
+    key = normalize_name(kba_name)
+
+    aliases = {
+        "parc national de tai": "tai nzo",
+        "reserve de faune du nzo": "tai nzo",
+        "parc national de tai et reserve de faune du nzo": "tai nzo",
+        "adiopodoume": "adiopodoume",
+        "foret classee de bossematie": "bossematie",
+        "foret classee de yapo et mambo": "yapo mambo",
+        "parc national du banco": "banco",
+        "foret marecageuse de la tanoe": "tanoe ehy",
+        "parc national dazagny": "azagny",
+        "foret classee de moprie": "moprie",
+        "station de recherche ecologique de lamto": "lamto",
+        "foret classee de cavally et goin debe": "cavally goin debe",
+        "parc national du mont peko": "mont peko",
+        "parc national de la marahoue": "marahoue",
+        "foret classee des monts gueoule et mont glo reserves": "gueoule glo",
+        "reserve integrale du mont nimba": "mont nimba",
+        "parc national de la comoe": "comoe",
+        "parc national du mont sangbe": "sangbe",
+    }
+
+    # On re-normalise la valeur de l'alias pour garantir
+    # qu'elle est dans le même espace que _zone_key
+    return normalize_name(aliases.get(key, key))
+
+
+@st.cache_data(show_spinner=False)
+def load_kba_species(excel_path):
+    """
+    Charge les feuilles espèces et référence KBA.
+    """
+
+    try:
+        especes = pd.read_excel(
+            excel_path,
+            sheet_name="Especes_menacees",
+            engine="openpyxl"
+        )
+
+        kba_ref = pd.read_excel(
+            excel_path,
+            sheet_name="KBA_17",
+            engine="openpyxl"
+        )
+
+    except Exception as e:
+        st.error(
+            f"Erreur chargement fichier espèces : {e}"
+        )
+        return None, None
+
+    # Suppression des lignes d'en-tête répétées
+    if "Code KBA" in especes.columns:
+        especes = especes[
+            especes["Code KBA"] != "Code KBA"
+        ].copy()
+
+    if "Code" in kba_ref.columns:
+        kba_ref = kba_ref[
+            kba_ref["Code"] != "Code"
+        ].copy()
+
+    especes = especes.reset_index(drop=True)
+    kba_ref = kba_ref.reset_index(drop=True)
+
+    return especes, kba_ref
+
+
+
+def enrich_with_kba_species(clients_df, kba_name_col, species_path):
+
+    COLONNES_ESPECES = [
+        "Code KBA",
+        "Espèce / taxon",
+        "Groupe",
+        "Statut UICN / statut actuel",
+        "Endémisme / restriction",
+    ]
+
+    # --- Sécurité 1 : entrée vide ---
+    if clients_df is None or clients_df.empty:
+        for c in COLONNES_ESPECES:
+            clients_df[c] = ""
+        return clients_df
+
+    try:
+        especes_df, _ = load_kba_species(species_path)
+
+        # --- Sécurité 2 : fichier Excel illisible ---
+        if especes_df is None:
+            st.error(f"❌ Fichier espèces introuvable ou illisible : {species_path}")
+            for c in COLONNES_ESPECES:
+                clients_df[c] = ""
+            return clients_df
+
+        especes_df = especes_df.copy()
+        clients_df = clients_df.copy()
+        especes_df.columns = especes_df.columns.astype(str).str.strip()
+        clients_df.columns = clients_df.columns.astype(str).str.strip()
+
+        # --- Sécurité 3 : colonnes Excel attendues ---
+        colonnes_manquantes = [c for c in ["Zone"] + COLONNES_ESPECES
+                               if c not in especes_df.columns]
+        if colonnes_manquantes:
+            st.error(f"❌ Colonnes manquantes dans l'Excel : {colonnes_manquantes}")
+            st.write("Colonnes disponibles :", list(especes_df.columns))
+            for c in COLONNES_ESPECES:
+                clients_df[c] = ""
+            return clients_df
+
+        # --- Clés normalisées ---
+        especes_df["_zone_key"] = especes_df["Zone"].fillna("").astype(str).apply(normalize_name)
+        clients_df["_kba_key"] = clients_df[kba_name_col].fillna("").astype(str).apply(get_kba_species_key)
+
+        # --- Matching exact + fallback flou ---
+        import difflib
+        zone_keys = especes_df["_zone_key"].unique().tolist()
+
+        def trouver_especes(kba_key):
+            sp = especes_df[especes_df["_zone_key"] == kba_key]
+            if not sp.empty:
+                return sp, "exact"
+            proches = difflib.get_close_matches(kba_key, zone_keys, n=1, cutoff=0.75)
+            if proches:
+                return especes_df[especes_df["_zone_key"] == proches[0]], f"flou (~{proches[0]})"
+            return sp, None
+
+        # --- Diagnostic du matching (visible dans l'app) ---
+        # avec_match = clients_df["_kba_key"].apply(lambda k: trouver_especes(k)[1] is not None).sum()
+        # st.write(f"🦎 Matching espèces : {avec_match}/{len(clients_df)} KBA appariées")
+
+        lignes = []
+        for _, client in clients_df.iterrows():
+            base = client.drop(labels=["_kba_key"], errors="ignore").to_dict()
+            sp, _ = trouver_especes(client["_kba_key"])
+
+            if sp.empty:
+                for c in COLONNES_ESPECES:
+                    base[c] = "Aucune espèce référencée" if c == "Espèce / taxon" else ""
+                lignes.append(base)
+            else:
+                for _, espece in sp.iterrows():
+                    ligne = dict(base)
+                    for c in COLONNES_ESPECES:
+                        ligne[c] = espece[c]
+                    lignes.append(ligne)
+
+        result = pd.DataFrame(lignes)
+
+        # --- Sécurité 4 : garantir la présence des colonnes ---
+        for c in COLONNES_ESPECES:
+            if c not in result.columns:
+                result[c] = ""
+
+        return result
+
+    except Exception as e:
+        st.exception(e)   # <-- affiche la vraie erreur au lieu d'échouer silencieusement
+        for c in COLONNES_ESPECES:
+            clients_df[c] = ""
+        return clients_df
+
+    # =====================================================
+    # NORMALISATION DES ZONES EXCEL
+    # =====================================================
+
+    especes_df["_zone_key"] = (
+        especes_df["Zone"]
+        .fillna("")
+        .astype(str)
+        .apply(normalize_name)
+    )
+
+    # =====================================================
+    # NORMALISATION DES KBA DE LA COUCHE SIG
+    # =====================================================
+
+    clients_df["_kba_key"] = (
+        clients_df[kba_name_col]
+        .fillna("")
+        .astype(str)
+        .apply(get_kba_species_key)
+    )
+
+    # =====================================================
+    # CONSTRUCTION DES LIGNES
+    # =====================================================
+
+    lignes_resultat = []
+
+    for _, client in clients_df.iterrows():
+
+        kba_key = client["_kba_key"]
+
+        if not kba_key:
+            continue
+
+        # -------------------------------------------------
+        # Toutes les espèces de cette KBA
+        # -------------------------------------------------
+
+        sp = especes_df[
+            especes_df["_zone_key"] == kba_key
+        ].copy()
+
+        if sp.empty:
+
+            # On conserve quand même le client
+            ligne = client.drop(
+                labels=["_kba_key"],
+                errors="ignore"
+            ).to_dict()
+
+            ligne["Espèce / taxon"] = "Aucune espèce référencée"
+            ligne["Groupe"] = ""
+            ligne["Statut UICN / statut actuel"] = ""
+            ligne["Endémisme / restriction"] = ""
+
+            lignes_resultat.append(ligne)
+
+            continue
+
+        # -------------------------------------------------
+        # UNE LIGNE PAR ESPECE
+        # -------------------------------------------------
+
+        for _, espece in sp.iterrows():
+
+            ligne = client.drop(
+                labels=["_kba_key"],
+                errors="ignore"
+            ).to_dict()
+
+            ligne["Code KBA"] = espece["Code KBA"]
+            ligne["Espèce / taxon"] = espece["Espèce / taxon"]
+            ligne["Groupe"] = espece["Groupe"]
+            ligne["Statut UICN / statut actuel"] = (
+                espece["Statut UICN / statut actuel"]
+            )
+            ligne["Endémisme / restriction"] = (
+                espece["Endémisme / restriction"]
+            )
+
+            lignes_resultat.append(ligne)
+
+    # =====================================================
+    # RESULTAT FINAL
+    # =====================================================
+
+    if not lignes_resultat:
+        return clients_df.drop(
+            columns=["_kba_key"],
+            errors="ignore"
+        )
+
+    result = pd.DataFrame(lignes_resultat)
+
+    return result
+
+
+# =========================
+# 🔎 EXTRACTIONS SUR ZONES SENSIBLES
+# =========================
+def extract_clients_inside_zones(gdf_clients, zones_gdf, name_field=None):
+    """
+    Retourne les clients situés À L'INTÉRIEUR des zones sensibles.
+    """
+    cols = [name_field] if name_field and name_field in zones_gdf.columns else []
+    zones = zones_gdf[cols + ["geometry"]].copy()
+
+    result = gpd.sjoin(
+        gdf_clients, zones, how="inner", predicate="intersects"
+    )
+
+    # 🔥 Un client dans plusieurs zones = une seule ligne (on garde la 1ère zone)
+    result = result.drop_duplicates(subset=["latitude", "longitude"])
+
+    return result
+
+
+def extract_clients_near_zones(
+    gdf_clients,
+    zones_gdf,
+    name_field=None,
+    distance_m=2000):
+    cols = [name_field] if name_field and name_field in zones_gdf.columns else []
+
+    # Zones dans un CRS métrique
+    zones_m = zones_gdf[cols + ["geometry"]].copy().to_crs(epsg=32630)
+
+    # Buffer uniquement pour sélectionner les clients à moins de 2 km
+    zones_buf = zones_m.copy()
+    zones_buf["geometry"] = zones_buf.geometry.buffer(distance_m)
+
+    # Clients en mètres
+    clients_m = gdf_clients.to_crs(epsg=32630)
+
+    # Extraction
+    result = gpd.sjoin(
+        clients_m,
+        zones_buf,
+        how="inner",
+        predicate="intersects"
+    )
+
+    # On récupère la vraie géométrie de la zone
+    zone_geometries = zones_m[["geometry"]].copy()
+
+    # index_right correspond à l'index de la zone originale
+    result["_zone_geometry"] = result["index_right"].map(
+        zone_geometries["geometry"]
+    )
+
+    # Distance réelle en mètres
+    result["distance_m"] = result.geometry.distance(
+        result["_zone_geometry"]
+    )
+
+    # Conversion en kilomètres
+    result["distance_km"] = result["distance_m"] / 1000
+
+    # Nettoyage
+    result = result.drop(columns=["_zone_geometry"], errors="ignore")
+
+    # Retour en WGS84
+    result = result.to_crs(epsg=4326)
+
+    # Arrondi
+    result["distance_m"] = result["distance_m"].round(1)
+    result["distance_km"] = result["distance_km"].round(3)
+
+    return result
+
+
+def show_kba_species(clients_in_zones, kba_name_col, species_path):
+    """
+    Affiche automatiquement les espèces menacées/endémiques
+    des KBA contenant des clients.
+    """
+    especes_df, _ = load_kba_species(species_path)
+
+    if especes_df is None:
+        st.error("Impossible de charger la base d'espèces.")
+        return
+
+    st.markdown("#### 🦎 Espèces menacées / endémiques des KBA concernés")
+
+    especes_df["_key"] = especes_df["Zone"].apply(normalize_name)
+
+    zones_concernees = clients_in_zones[kba_name_col].dropna().unique()
+
+    for zone in zones_concernees:
+        key = normalize_name(zone)
+        sp = especes_df[especes_df["_key"] == key].drop(columns="_key")
+
+        if len(sp) == 0:
+            with st.expander(f"🌍 {zone} — aucune espèce référencée"):
+                st.info("Cette zone KBA n'a pas d'espèce listée dans la base.")
+            continue
+
+        nb_critique = sp["Statut UICN / statut actuel"].str.contains(
+            "En danger critique", na=False).sum()
+        nb_endemique = sp["Endémisme / restriction"].str.contains(
+            "Endémique", na=False).sum()
+
+        resume = (
+            f"🌍 {zone} — {len(sp)} espèces | "
+            f"🚨 {nb_critique} en danger critique | "
+            f"⭐ {nb_endemique} endémique(s)"
+        )
+
+        with st.expander(resume):
+            st.dataframe(sp)
+            csv_sp = sp.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                f"⬇️ Télécharger espèces - {zone}",
+                csv_sp,
+                f"especes_{key}.csv",
+                "text/csv",
+                key=f"dl_{key}"
+            )
+
+
+def clean_coord(series):
+                    """Nettoie les coordonnées : espaces insécables, virgules décimales, etc."""
+                    return pd.to_numeric(
+                        series.astype(str)
+                            .str.replace("\xa0", "", regex=False)   # espace insécable
+                            .str.replace("\u202f", "", regex=False)  # espace fine insécable
+                            .str.replace(" ", "", regex=False)
+                            .str.replace(",", ".", regex=False)      # virgule → point
+                            .str.strip(),
+                        errors="coerce"
+                    )
+
+def read_shp_safe(path):
+    """Lit un shapefile en gérant l'encodage des attributs."""
+    for enc in ("utf-8", "latin-1", "cp1252"):
+        try:
+            return gpd.read_file(path, encoding=enc)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    # dernier recours : lecture sans lever d'erreur
+    return gpd.read_file(path, encoding="latin-1", ignore_errors=True)
+
+
+def sanitize_strings(gdf):
+    """Supprime les caractères problématiques des colonnes texte."""
+    gdf = gdf.copy()
+    for col in gdf.columns:
+        if col != "geometry" and gdf[col].dtype == object:
+            gdf[col] = (
+                gdf[col]
+                .astype(str)
+                .str.encode("utf-8", errors="replace")
+                .str.decode("utf-8")
+                .str.replace("\xa0", " ", regex=False)
+            )
+    return gdf

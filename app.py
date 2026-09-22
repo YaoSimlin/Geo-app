@@ -21,8 +21,8 @@ import tempfile
 from pyproj import Transformer
 from fonction import get_base64_image,compute_indices,fix_crs,compute_nearest,load_clients,get_color,get_name_field,get_stress_color,build_dynamic_world_map
 from fonction import get_client_geometry,load_uploaded_geometry,create_hls_timeseries,get_best_sentinel_pair,save_raster,compute_ndvi_raster,dynamic_world_change
-from fonction import get_dynamic_world_series,dynamic_world_timelapse,init_ee
-import copy
+from fonction import get_dynamic_world_series,dynamic_world_timelapse,init_ee,load_kba_species, normalize_name, extract_clients_inside_zones, \
+    extract_clients_near_zones, show_kba_species,extract_clients_inside_zones,enrich_with_kba_species,clean_coord,read_shp_safe,sanitize_strings
 import geopandas
 import streamlit_authenticator as stauth
 
@@ -230,19 +230,14 @@ if st.session_state["authentication_status"]:
 
     @st.cache_data(ttl=3600)
     def load_data():
-            lake = fix_crs(gpd.read_file(lake_path))
-            waterways = fix_crs(gpd.read_file(water_path))
-            parcs = fix_crs(gpd.read_file(parcs_path))
-            forets = fix_crs(gpd.read_file(forest_path))
-            bassin = fix_crs(gpd.read_file(bassin_path))
-            hydro = fix_crs(gpd.read_file(hydro_path))
-            integrale = fix_crs(gpd.read_file(integrale_path))
-
-            # -------------------------
-            # 🌍 KBA GLOBAL → FILTRE CI
-            # -------------------------
-            # kba_path = r"Data\KBAsGlobal_2025_September_02_POL.shp"
-            kba = fix_crs(gpd.read_file(kba_path))
+            lake      = fix_crs(read_shp_safe(lake_path))
+            waterways = fix_crs(read_shp_safe(water_path))
+            parcs     = fix_crs(read_shp_safe(parcs_path))
+            forets    = fix_crs(read_shp_safe(forest_path))
+            bassin    = fix_crs(read_shp_safe(bassin_path))
+            hydro     = fix_crs(read_shp_safe(hydro_path))
+            integrale = fix_crs(read_shp_safe(integrale_path))
+            kba       = fix_crs(read_shp_safe(kba_path))
 
             # Bounding box Côte d'Ivoire
             bbox = (-8.6, 4.3, -2.5, 10.8)
@@ -251,7 +246,7 @@ if st.session_state["authentication_status"]:
             kba = kba.cx[bbox[0]:bbox[2], bbox[1]:bbox[3]]
 
             # stress_path = r"Data\Stress_hydrique.shp"
-            stress_hydrique = gpd.read_file(stress_path)
+            stress_hydrique = read_shp_safe(stress_path)
             stress_hydrique = stress_hydrique[[
                 "bws_score",
                 "bws_label",
@@ -1100,37 +1095,27 @@ if st.session_state["authentication_status"]:
             # -------------------------
             # 🌍 AJOUT DES COUCHES SIG
             # -------------------------
-            m3.add_gdf(
-                bassin,
-                layer_name ="Bassin versant",
-                style={"color": "orange"}
-            )
-            m3.add_gdf(hydro, layer_name="Reseau hydro", style={"color": "gray"})
-            m3.add_gdf(
-                forets,
-                layer_name="Aires protégées",
-                style={"color": "green"})
-            m3.add_gdf(integrale, layer_name="Reserves integrale", style={"color": "red"})
-            m3.add_gdf(parcs, layer_name="Reserves", style={"color": "red"})
-            m3.add_gdf(waterways, layer_name="Cours d'eau", style={"color": "blue"})
-            m3.add_gdf(lake, layer_name="Lacs", style={"color": "navy"})
-            m3.add_gdf(
-            kba,
-            layer_name="Zones KBA",
-            style={
-                "color": "purple",
-                "fillColor": "purple",
-                "fillOpacity": 0.2
-            }
-        )
+            m3.add_gdf(sanitize_strings(bassin), layer_name="Bassin versant", style={"color": "orange"})
+            m3.add_gdf(sanitize_strings(hydro), layer_name="Reseau hydro", style={"color": "gray"})
+            m3.add_gdf(sanitize_strings(forets), layer_name="Aires protégées", style={"color": "green"})
+            m3.add_gdf(sanitize_strings(integrale), layer_name="Reserves integrale", style={"color": "red"})
+            m3.add_gdf(sanitize_strings(parcs), layer_name="Reserves", style={"color": "red"})
+            m3.add_gdf(sanitize_strings(waterways), layer_name="Cours d'eau", style={"color": "blue"})
+            m3.add_gdf(sanitize_strings(lake), layer_name="Lacs", style={"color": "navy"})
+            m3.add_gdf(sanitize_strings(kba), layer_name="Zones KBA",
+                    style={"color": "purple", "fillColor": "purple", "fillOpacity": 0.2})
 
             if uploaded_file is not None:
 
+                # Lecture fichier
                 # Lecture fichier
                 if uploaded_file.name.endswith(".csv"):
                     df_clients = pd.read_csv(uploaded_file)
                 else:
                     df_clients = pd.read_excel(uploaded_file, engine="openpyxl")
+
+                df_clients["latitude"]  = clean_coord(df_clients["latitude"])
+                df_clients["longitude"] = clean_coord(df_clients["longitude"])
 
                 df_clients = df_clients.dropna(subset=["latitude", "longitude"])
 
@@ -1148,6 +1133,171 @@ if st.session_state["authentication_status"]:
                 clients_kba = gpd.sjoin(gdf_clients, kba, how="inner", predicate="intersects")
 
                 st.warning(f"{len(clients_kba)} clients situés dans une zone KBA ⚠️")
+
+                            # -------------------------
+            # 🔎 EXTRACTIONS ESG — ZONES SENSIBLES
+            # -------------------------
+            st.markdown("---")
+            st.subheader("🔎 Extraction des clients à risque environnemental")
+
+            SPECIES_PATH = os.path.join("Data", "kba_especes.xlsx")
+
+            # =========================
+            # 🗂️ DÉFINITION DES ZONES SENSIBLES
+            # =========================
+            ZONES_SENSIBLES = {
+                "🌲 Forêts classées":      (forets,    "NOM_FORET"),
+                "🦜 Parcs & réserves":     (parcs,     get_name_field(parcs)),
+                "🔴 Réserves intégrales":  (integrale, get_name_field(integrale)),
+                "🌍 Zones KBA":            (kba,       "NatName"),
+                "💧 Lacs":                 (lake,      get_name_field(lake)),
+                "🏞️ Cours d'eau":          (waterways, "name" if "name" in waterways.columns else None),
+            }
+
+            zone_choisie = st.selectbox(
+                "🗂️ Choisissez la zone sensible",
+                list(ZONES_SENSIBLES.keys())
+            )
+
+            mode_extraction = st.radio(
+                "Mode d'extraction",
+                ["📍 À l'intérieur de la zone", "📏 À moins de 2 km de la zone"]
+            )
+
+            zones_gdf, name_field = ZONES_SENSIBLES[zone_choisie]
+
+            if st.button("🔎 Extraire les clients"):
+
+                # =========================
+                # 📍 INTÉRIEUR
+                # =========================
+                if mode_extraction.startswith("📍"):
+                    clients_extraits = extract_clients_inside_zones(
+                        gdf_clients,
+                        zones_gdf,
+                        name_field
+                    )
+
+                    # À l'intérieur = distance 0
+                    clients_extraits["distance_m"] = 0.0
+                    clients_extraits["distance_km"] = 0.0
+
+                    libelle_mode = "à l'intérieur de"
+
+                else:
+                    clients_extraits = extract_clients_near_zones(
+                        gdf_clients,
+                        zones_gdf,
+                        name_field,
+                        distance_m=2000
+                    )
+
+                    libelle_mode = "à moins de 2 km de"
+                
+                # =========================
+                # 🦎 ENRICHISSEMENT KBA
+                # =========================
+                if zone_choisie == "🌍 Zones KBA" and len(clients_extraits) > 0:
+
+                #     # --- DIAGNOSTIC FICHIER ---
+                #     st.write("📁 Fichier espèces existe :", os.path.exists(SPECIES_PATH))
+                #     if os.path.exists(SPECIES_PATH):
+                #         xl = pd.ExcelFile(SPECIES_PATH)
+                #         st.write("📑 Feuilles Excel :", xl.sheet_names)
+
+                #     especes_test, _ = load_kba_species(SPECIES_PATH)
+                #     if especes_test is not None:
+                #         st.write("📋 Colonnes espèces :", list(especes_test.columns))
+                #         st.write("🌍 Exemples de zones Excel :",
+                #                 especes_test["Zone"].dropna().unique()[:10].tolist() if "Zone" in especes_test.columns else "PAS DE COLONNE 'Zone'")
+
+                      clients_extraits = enrich_with_kba_species(
+                         clients_extraits,
+                         name_field,
+                         SPECIES_PATH
+                     )
+
+                # # --- DIAGNOSTIC RÉSULTAT ---
+                # st.write("🔧 Colonnes APRÈS enrichissement :", list(clients_extraits.columns))
+                # st.write("🔧 Nb lignes APRÈS enrichissement :", len(clients_extraits))
+                # if "Espèce / taxon" in clients_extraits.columns:
+                #     st.write("🔧 Exemple espèces :", clients_extraits["Espèce / taxon"].head(5).tolist())
+
+                # =========================
+                # 📊 TABLEAU D'EXTRACTION
+                # =========================
+
+                result_table_cols = [
+                    "nom",
+                    "secteur",
+                    "latitude",
+                    "longitude",
+                    name_field,
+                    "distance_m",
+                    "distance_km"
+                ]
+
+                # Colonnes supplémentaires pour les KBA
+                if zone_choisie == "🌍 Zones KBA":
+                    result_table_cols += [
+                                    "Code KBA",
+                                    "Espèce / taxon",
+                                    "Groupe",
+                                    "Statut UICN / statut actuel",
+                                    "Endémisme / restriction"
+                                ]
+
+                # Garder uniquement les colonnes réellement disponibles
+                result_table_cols = [
+                    c for c in result_table_cols
+                    if c in clients_extraits.columns
+                ]
+
+                # Tableau final
+                df_affichage = clients_extraits[result_table_cols].copy()
+
+                # Noms lisibles dans l'interface
+                df_affichage = df_affichage.rename(columns={
+                    name_field: "Zone sensible",
+                    "distance_m": "Distance réelle (m)",
+                    "distance_km": "Distance réelle (km)"
+                })
+
+                st.dataframe(
+                    df_affichage,
+                    use_container_width=True
+                )
+
+                nom_fichier = (
+                    f"clients_"
+                    f"{'interieur' if mode_extraction.startswith('📍') else 'moins_2km'}_"
+                    f"{normalize_name(zone_choisie).replace(' ', '_')}.csv"
+                )
+
+                csv_out = df_affichage.to_csv(
+                    index=False
+                ).encode("utf-8-sig")
+
+                st.download_button(
+                    "⬇️ Télécharger l'extraction (CSV)",
+                    csv_out,
+                    nom_fichier,
+                    "text/csv",
+                    key=f"dl_extract_{normalize_name(zone_choisie)}"
+                )
+
+                    # 🗺️ Marqueurs sur la carte
+                couleur = "red" if mode_extraction.startswith("📍") else "orange"
+                for _, row in clients_extraits.iterrows():
+                    popup_txt = f"{row.get('nom', 'Client')}"
+                    if name_field and name_field in row.index and pd.notna(row[name_field]):
+                         popup_txt += f"<br>{zone_choisie} : {row[name_field]}"
+                    m3.add_marker(
+                            location=[row["latitude"], row["longitude"]],
+                            popup=popup_txt,
+                            icon=folium.Icon(color=couleur, icon="info-sign")
+                        )
+
 
                 if afficher:
                     # ✅ Ajout des clients (cluster)
@@ -1187,7 +1337,18 @@ if st.session_state["authentication_status"]:
                     "Autres": "gray"
                 }
             )
-            m3.to_streamlit(height=700)
+            #m3.to_streamlit(height=700)
+            import streamlit.components.v1 as components
+            from tempfile import NamedTemporaryFile
+
+            with NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8") as tmp:
+                fname = tmp.name
+
+            m3.save(fname)
+
+            with open(fname, encoding="utf-8") as f:
+                components.html(f.read(), height=700, scrolling=True)
+
 
 elif st.session_state["authentication_status"] is False:
     st.error("Nom d'utilisateur ou mot de passe incorrect")

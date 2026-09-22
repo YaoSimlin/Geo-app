@@ -1,0 +1,4 @@
+streamlit==1.39.0
+geemap==0.34.5
+leafmap==0.39.2
+earthengine-api==1.4.0
