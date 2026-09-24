@@ -53,6 +53,14 @@ authenticator = stauth.Authenticate(
     config["cookie"]["expiry_days"]
 )
 
+if st.session_state.get("authentication_status") is not True:
+
+    st.info(
+        "🔐 Veuillez renseigner votre nom d'utilisateur et votre mot de passe "
+        "pour accéder à NSIAGEO.",
+        icon="🔑"
+    )
+
 authenticator.login()
 
 if st.session_state["authentication_status"]:
@@ -517,269 +525,273 @@ if st.session_state["authentication_status"]:
             ["🗺️ Carte & Analyse", "📈 Impact environnemental", "📍 Position"]
         )
     if mode == "🗺️ Carte & Analyse":
+            with st.spinner("🗺️ Préparation de la carte environnementale..."):
+                m = leafmap.Map(center=[7.5, -5.5], zoom=15)
+                # -------------------------
+                # Carte Split map
+                # -------------------------
+                #m.split_map(
+                #    left_layer="ESA WorldCover 2020 S2 FCC",
+                #    right_layer="ESA WorldCover 2020"
+                #)
+                def style_protected_areas(feature):
+                    nature = feature["properties"].get("NATURE", "")
 
-            m = leafmap.Map(center=[7.5, -5.5], zoom=15)
-            # -------------------------
-            # Carte Split map
-            # -------------------------
-            #m.split_map(
-            #    left_layer="ESA WorldCover 2020 S2 FCC",
-            #    right_layer="ESA WorldCover 2020"
-            #)
-            def style_protected_areas(feature):
-                nature = feature["properties"].get("NATURE", "")
+                    if "Parcs Nationaux" in nature:
+                        return {
+                            "color": "purple",
+                            "fillColor": "purple",
+                            "fillOpacity": 0.5,
+                            "weight": 1
+                        }
 
-                if "Parcs Nationaux" in nature:
-                    return {
-                        "color": "purple",
-                        "fillColor": "purple",
-                        "fillOpacity": 0.5,
-                        "weight": 1
-                    }
+                    elif "Forêts classées" in nature or "Foret classee" in nature:
+                        return {
+                            "color": "gray",
+                            "fillColor": "gray",
+                            "fillOpacity": 0.2,
+                            "weight": 1,
+                            "dashArray": "5, 5"  # effet rayé (simulation)
+                        }
 
-                elif "Forêts classées" in nature or "Foret classee" in nature:
-                    return {
-                        "color": "gray",
-                        "fillColor": "gray",
-                        "fillOpacity": 0.2,
+                    else:
+                        return {
+                            "color": "green",
+                            "fillOpacity": 0.3
+                        }
+                m.add_gdf(
+                    stress_hydrique,
+                    layer_name="Stress hydrique",
+                    style_function=lambda x: {
+                        "fillColor": x["properties"]["color"],
+                        "color": "black",
                         "weight": 1,
-                        "dashArray": "5, 5"  # effet rayé (simulation)
-                    }
-
-                else:
-                    return {
-                        "color": "green",
-                        "fillOpacity": 0.3
-                    }
-            m.add_gdf(
-                stress_hydrique,
-                layer_name="Stress hydrique",
-                style_function=lambda x: {
-                    "fillColor": x["properties"]["color"],
-                    "color": "black",
-                    "weight": 1,
-                    "fillOpacity": 0.7
-                },
-                info_mode="on_hover"
-            )
-            m.add_gdf(
-                bassin,
-                layer_name ="Bassin versant",
-                style={"color": "orange"}
-            )
-            m.add_gdf(hydro, layer_name="Reseau hydro", style={"color": "gray"})
-            m.add_gdf(
-                forets,
-                layer_name="Aires protégées",
-                style={"color": "green"}
-            )
-            m.add_gdf(integrale, layer_name="Reserves integrale", style={"color": "red"})
-            m.add_gdf(parcs, layer_name="Reserves", style={"color": "red"})
-            m.add_gdf(waterways, layer_name="Cours d'eau", style={"color": "blue"})
-            m.add_gdf(
-            kba,
-            layer_name="Zones KBA",
-            style={
-                "color": "purple",
-                "fillColor": "purple",
-                "fillOpacity": 0.2
-            }
+                        "fillOpacity": 0.7
+                    },
+                    info_mode="on_hover"
                 )
-            m.add_gdf(lake, layer_name="Lacs", style={"color": "navy"})
-            
-            # -------------------------
-            # 🌍 ESRI LULC
-            # -------------------------
-            
-            #m.add_legend(title="Occupation du sol", builtin_legend="ESA_WorldCover")
-
-            if st.session_state.get("geometry") is not None:
-                geom = st.session_state["geometry"]
-                geom_m = st.session_state["geom_m"]
-                use_shape = st.session_state["use_shape"]
-            else:
-                geom = Point(lon, lat)
-                geom_m = gpd.GeoSeries([geom], crs=4326).to_crs(32630).iloc[0]
-                use_shape = False
-                        # -------------------------
-            # Analyse client
-            # -------------------------
-            if "analyzed" not in st.session_state:
-                st.session_state["analyzed"] = False
-            if analyser:
-                st.session_state["analyzed"] = True
-            if st.session_state.get("analyzed", False):
-                point_client = Point(lon, lat)
-                forets_m = forets.to_crs(epsg=32630)
-                water_m = waterways.to_crs(epsg=32630)
-                parcs_m = parcs.to_crs(epsg=32630)
-                lake_m = lake.to_crs(epsg=32630)
-                kba_m = kba.to_crs(epsg=32630)
-                point_m = gpd.GeoSeries([point_client], crs=4326).to_crs(32630)
-                if "geometry" not in st.session_state:
-                    st.warning("Veuillez lancer une analyse")
-                    st.stop()
-
-                geom = st.session_state["geometry"]
-                geom_m = st.session_state["geom_m"]
-                use_shape = st.session_state["use_shape"]
-
-                forets_m["dist"] = forets_m.distance(geom_m)
-                idx_f = forets_m["dist"].idxmin()
-                distance_foret_km = forets_m.loc[idx_f, "dist"] / 1000
-                foret_nom = str(forets.loc[idx_f, "NOM_FORET"])
-
-                kba_m["dist"] = kba_m.distance(geom_m)
-                idx_kba = kba_m["dist"].idxmin()
-                distance_kba_km = kba_m.loc[idx_kba, "dist"] / 1000
-                kba_nom = str(kba.loc[idx_kba, "NatName"])
-
-                parcs_m["dist"] = parcs_m.distance(geom_m)
-                idx_parc = parcs_m["dist"].idxmin()
-                distance_parcs_km = parcs_m.loc[idx_parc, "dist"] / 1000
-                name_field_parc = get_name_field(parcs)
-                if name_field_parc:
-                    parc_nom = str(parcs.loc[idx_parc, name_field_parc])
-                else:
-                    parc_nom = "Non renseigné"
-
-                if forets_m.intersects(geom_m).any():
-                    distance_foret_km = 0
-                    foret_nom = "Zone intersectée ⚠️"
-                else:
-                    forets_m["dist"] = forets_m.distance(geom_m)
-                    idx_foret = forets_m["dist"].idxmin()
-                    distance_foret_km = forets_m.loc[idx_foret, "dist"] / 1000
-                    foret_nom = str(forets.loc[idx_foret, "NOM_FORET"])
-
-                water_m["dist"] = water_m.distance(geom_m)
-                idx_w = water_m["dist"].idxmin()
-                distance_water_km = water_m.loc[idx_w, "dist"] / 1000
-                water_name = str(waterways.loc[idx_w, "name"]) if waterways.loc[idx_w, "name"] else "Non renseigne"
-
-                lake_m["dist"] = lake_m.distance(geom_m)
-                idx_w = lake_m["dist"].idxmin()
-                distance_lac_km = lake_m.loc[idx_w, "dist"] / 1000
-                name_field_lake = get_name_field(lake)
-                lake_name = str(lake.loc[idx_w, name_field_lake]) if name_field_lake else "Non renseigné"
-
-                tooltip_text = (
-                    f"Client\n"
-                    f"Lat: {lat:.5f}, Lon: {lon:.5f}\n"
-                    f"Forêt: {foret_nom} ({distance_foret_km:.2f} km)\n"
-                    f"Parc: {parc_nom} ({distance_parcs_km:.2f} km)\n"
-                    f"Eau: {water_name} ({distance_water_km:.2f} km)\n"
-                    f"Lac: {lake_name} ({distance_lac_km:.2f} km)\n"
-                    f"KBA:{kba_nom} ({distance_kba_km:.2f} km)"
+                m.add_gdf(
+                    bassin,
+                    layer_name ="Bassin versant",
+                    style={"color": "orange"}
                 )
-                # Nettoyage UTF-8 sécurisé
-                if use_shape:
-                    tooltip_text = (
-                        f"Zone client\n"
-                        f"Forêt: {foret_nom} ({distance_foret_km:.2f} km)\n"
-                        f"Parc: {parc_nom} ({distance_parcs_km:.2f} km)"
+                m.add_gdf(hydro, layer_name="Reseau hydro", style={"color": "gray"})
+                m.add_gdf(
+                    forets,
+                    layer_name="Aires protégées",
+                    style={"color": "green"}
+                )
+                m.add_gdf(integrale, layer_name="Reserves integrale", style={"color": "red"})
+                m.add_gdf(parcs, layer_name="Reserves", style={"color": "red"})
+                m.add_gdf(waterways, layer_name="Cours d'eau", style={"color": "blue"})
+                m.add_gdf(
+                kba,
+                layer_name="Zones KBA",
+                style={
+                    "color": "purple",
+                    "fillColor": "purple",
+                    "fillOpacity": 0.2
+                }
                     )
+                m.add_gdf(lake, layer_name="Lacs", style={"color": "navy"})
+                
+                # -------------------------
+                # 🌍 ESRI LULC
+                # -------------------------
+                
+                #m.add_legend(title="Occupation du sol", builtin_legend="ESA_WorldCover")
+
+                if st.session_state.get("geometry") is not None:
+                    geom = st.session_state["geometry"]
+                    geom_m = st.session_state["geom_m"]
+                    use_shape = st.session_state["use_shape"]
                 else:
-                    tooltip_text = (
-                        f"Client\n"
-                        f"Lat: {lat:.5f}, Lon: {lon:.5f}\n"
-                        f"Forêt: {foret_nom} ({distance_foret_km:.2f} km)"
-                    )
+                    geom = Point(lon, lat)
+                    geom_m = gpd.GeoSeries([geom], crs=4326).to_crs(32630).iloc[0]
+                    use_shape = False
+                            # -------------------------
+                # Analyse client
                 # -------------------------
-                # Résultats
-                # -------------------------
-                st.subheader("Résultats environnementaux")
-                st.write(f"Foret clasée la plus proche : {foret_nom} ({distance_foret_km:.2f} km)")
-                st.write(f"Cours d'eau le plus proche : {water_name} ({distance_water_km:.2f} km)")
-                st.write(f"Parc le plus proche : {parc_nom} ({distance_parcs_km:.2f} km)")
-                st.write(f"Lac le plus proche : {lake_name} ({distance_lac_km:.2f} km)")
-                st.write(f"zone de kbas la plus proche : {kba_nom} ({distance_kba_km:.2f} km)")
+                if "analyzed" not in st.session_state:
+                    st.session_state["analyzed"] = False
+                if analyser:
+                    st.session_state["analyzed"] = True
+                if st.session_state.get("analyzed", False):
+                    point_client = Point(lon, lat)
+                    forets_m = forets.to_crs(epsg=32630)
+                    water_m = waterways.to_crs(epsg=32630)
+                    parcs_m = parcs.to_crs(epsg=32630)
+                    lake_m = lake.to_crs(epsg=32630)
+                    kba_m = kba.to_crs(epsg=32630)
+                    point_m = gpd.GeoSeries([point_client], crs=4326).to_crs(32630)
+                    if "geometry" not in st.session_state:
+                        st.warning("Veuillez lancer une analyse")
+                        st.stop()
 
-                st.subheader("Diagnostic RSE")
-
-                secteur = st.session_state.get("secteur", "Other")
-
-                distances = [
-                    distance_foret_km,
-                    distance_parcs_km,
-                    distance_kba_km,
-                    distance_water_km
-                ]
-
-                min_distance = min(distances)
-
-                risk, screening_flag = get_risk_level(min_distance, secteur)
-
-                if risk == "very high":
-                    st.error("🔴 Risque ESG très élevé (zone directe)")
-                    
-                elif risk == "high":
-                    st.warning("🟠 Risque ESG élevé (zone indirecte)")
-                    
-                elif risk == "medium":
-                    st.info("🟡 Risque ESG modéré (effet cumulatif)")
-                    
-                elif risk == "screening":
-                    st.info("🛰️ Zone de vigilance ESG (screening 50 km)")
-                    
-                else:
-                    st.success("🟢 Risque ESG faible")
-
-                # -------------------------
-                # Analyse satellite
-                # -------------------------
-                with st.spinner("Analyse satellite en cours..."):
-                    # Géométrie en mètres
                     geom = st.session_state["geometry"]
                     geom_m = st.session_state["geom_m"]
                     use_shape = st.session_state["use_shape"]
 
-                    if use_shape:
-                        zone_analysis = geom
+                    forets_m["dist"] = forets_m.distance(geom_m)
+                    idx_f = forets_m["dist"].idxmin()
+                    distance_foret_km = forets_m.loc[idx_f, "dist"] / 1000
+                    foret_nom = str(forets.loc[idx_f, "NOM_FORET"])
+
+                    kba_m["dist"] = kba_m.distance(geom_m)
+                    idx_kba = kba_m["dist"].idxmin()
+                    distance_kba_km = kba_m.loc[idx_kba, "dist"] / 1000
+                    kba_nom = str(kba.loc[idx_kba, "NatName"])
+
+                    parcs_m["dist"] = parcs_m.distance(geom_m)
+                    idx_parc = parcs_m["dist"].idxmin()
+                    distance_parcs_km = parcs_m.loc[idx_parc, "dist"] / 1000
+                    name_field_parc = get_name_field(parcs)
+                    if name_field_parc:
+                        parc_nom = str(parcs.loc[idx_parc, name_field_parc])
                     else:
-                        buffer_m = geom_m.buffer(1000)
-                        zone_analysis = gpd.GeoSeries([buffer_m], crs=32630).to_crs(4326).iloc[0]
+                        parc_nom = "Non renseigné"
 
-                    ndvi_value, ndwi_value = compute_indices(zone_analysis)
-                    st.subheader("Analyse NDVI / NDWI")
-                    st.write(f"NDVI moyen : {ndvi_value:.2f}" if ndvi_value is not None else "NDVI non disponible")
-                    st.write(f"NDWI moyen : {ndwi_value:.2f}" if ndwi_value is not None else "NDWI non disponible")
-            # =========================
-            # AJOUT SHAPE CLIENT
-            # =========================
-            if st.session_state.get("gdf_client") is not None:
+                    if forets_m.intersects(geom_m).any():
+                        distance_foret_km = 0
+                        foret_nom = "Zone intersectée ⚠️"
+                    else:
+                        forets_m["dist"] = forets_m.distance(geom_m)
+                        idx_foret = forets_m["dist"].idxmin()
+                        distance_foret_km = forets_m.loc[idx_foret, "dist"] / 1000
+                        foret_nom = str(forets.loc[idx_foret, "NOM_FORET"])
 
-                gdf_client = st.session_state["gdf_client"]
+                    water_m["dist"] = water_m.distance(geom_m)
+                    idx_w = water_m["dist"].idxmin()
+                    distance_water_km = water_m.loc[idx_w, "dist"] / 1000
+                    water_name = str(waterways.loc[idx_w, "name"]) if waterways.loc[idx_w, "name"] else "Non renseigne"
 
-                st.write("DEBUG - shape chargé:", len(gdf_client))
+                    lake_m["dist"] = lake_m.distance(geom_m)
+                    idx_w = lake_m["dist"].idxmin()
+                    distance_lac_km = lake_m.loc[idx_w, "dist"] / 1000
+                    name_field_lake = get_name_field(lake)
+                    lake_name = str(lake.loc[idx_w, name_field_lake]) if name_field_lake else "Non renseigné"
 
-                m.add_gdf(
-                    gdf_client,
-                    layer_name="Zone client",
-                    style={
-                        "color": "black",
-                        "weight": 3,
-                        "fillColor": "black",
-                        "fillOpacity": 0.1
-                    }
+                    tooltip_text = (
+                        f"Client\n"
+                        f"Lat: {lat:.5f}, Lon: {lon:.5f}\n"
+                        f"Forêt: {foret_nom} ({distance_foret_km:.2f} km)\n"
+                        f"Parc: {parc_nom} ({distance_parcs_km:.2f} km)\n"
+                        f"Eau: {water_name} ({distance_water_km:.2f} km)\n"
+                        f"Lac: {lake_name} ({distance_lac_km:.2f} km)\n"
+                        f"KBA:{kba_nom} ({distance_kba_km:.2f} km)"
+                    )
+                    # Nettoyage UTF-8 sécurisé
+                    if use_shape:
+                        tooltip_text = (
+                            f"Zone client\n"
+                            f"Forêt: {foret_nom} ({distance_foret_km:.2f} km)\n"
+                            f"Parc: {parc_nom} ({distance_parcs_km:.2f} km)"
+                        )
+                    else:
+                        tooltip_text = (
+                            f"Client\n"
+                            f"Lat: {lat:.5f}, Lon: {lon:.5f}\n"
+                            f"Forêt: {foret_nom} ({distance_foret_km:.2f} km)"
+                        )
+                    # -------------------------
+                    # Résultats
+                    # -------------------------
+                    st.subheader("Résultats environnementaux")
+                    st.write(f"Foret clasée la plus proche : {foret_nom} ({distance_foret_km:.2f} km)")
+                    st.write(f"Cours d'eau le plus proche : {water_name} ({distance_water_km:.2f} km)")
+                    st.write(f"Parc le plus proche : {parc_nom} ({distance_parcs_km:.2f} km)")
+                    st.write(f"Lac le plus proche : {lake_name} ({distance_lac_km:.2f} km)")
+                    st.write(f"zone de kbas la plus proche : {kba_nom} ({distance_kba_km:.2f} km)")
+
+                    st.subheader("Diagnostic RSE")
+
+                    secteur = st.session_state.get("secteur", "Other")
+
+                    distances = [
+                        distance_foret_km,
+                        distance_parcs_km,
+                        distance_kba_km,
+                        distance_water_km
+                    ]
+
+                    min_distance = min(distances)
+
+                    risk, screening_flag = get_risk_level(min_distance, secteur)
+
+                    if risk == "very high":
+                        st.error("🔴 Risque ESG très élevé (zone directe)")
+                        
+                    elif risk == "high":
+                        st.warning("🟠 Risque ESG élevé (zone indirecte)")
+                        
+                    elif risk == "medium":
+                        st.info("🟡 Risque ESG modéré (effet cumulatif)")
+                        
+                    elif risk == "screening":
+                        st.info("🛰️ Zone de vigilance ESG (screening 50 km)")
+                        
+                    else:
+                        st.success("🟢 Risque ESG faible")
+
+                    # -------------------------
+                    # Analyse satellite
+                    # -------------------------
+                    with st.spinner("Analyse satellite en cours..."):
+                        # Géométrie en mètres
+                        geom = st.session_state["geometry"]
+                        geom_m = st.session_state["geom_m"]
+                        use_shape = st.session_state["use_shape"]
+
+                        if use_shape:
+                            zone_analysis = geom
+                        else:
+                            buffer_m = geom_m.buffer(1000)
+                            zone_analysis = gpd.GeoSeries([buffer_m], crs=32630).to_crs(4326).iloc[0]
+
+                        ndvi_value, ndwi_value = compute_indices(zone_analysis)
+                        st.subheader("Analyse NDVI / NDWI")
+                        st.write(f"NDVI moyen : {ndvi_value:.2f}" if ndvi_value is not None else "NDVI non disponible")
+                        st.write(f"NDWI moyen : {ndwi_value:.2f}" if ndwi_value is not None else "NDWI non disponible")
+                # =========================
+                # AJOUT SHAPE CLIENT
+                # =========================
+                if st.session_state.get("gdf_client") is not None:
+
+                    gdf_client = st.session_state["gdf_client"]
+
+                    st.write("DEBUG - shape chargé:", len(gdf_client))
+
+                    m.add_gdf(
+                        gdf_client,
+                        layer_name="Zone client",
+                        style={
+                            "color": "black",
+                            "weight": 3,
+                            "fillColor": "black",
+                            "fillOpacity": 0.1
+                        }
+                    )
+
+                    centroid = gdf_client.unary_union.centroid
+
+                    m.add_marker(
+                        location=[centroid.y, centroid.x],
+                        popup="Centre zone client",
+                        icon=folium.Icon(color="black")
+                    )
+
+                    m.center = [centroid.y, centroid.x]
+                    m.zoom = 14
+
+                else:
+                    m.add_marker(location=[lat, lon])
+                    m.center = [lat, lon]
+                    m.zoom = 15
+            st.info(
+                    "🗺️ Affichage de la carte en cours. "
+                    "Selon votre connexion, cela peut prendre quelques secondes.",
+                    icon="⏳"
                 )
-
-                centroid = gdf_client.unary_union.centroid
-
-                m.add_marker(
-                    location=[centroid.y, centroid.x],
-                    popup="Centre zone client",
-                    icon=folium.Icon(color="black")
-                )
-
-                m.center = [centroid.y, centroid.x]
-                m.zoom = 14
-
-            else:
-                m.add_marker(location=[lat, lon])
-                m.center = [lat, lon]
-                m.zoom = 15
-                
             m.to_streamlit(height=700)
             
     elif mode == "📈 Impact environnemental":
@@ -1088,22 +1100,25 @@ if st.session_state["authentication_status"]:
                 "Importer fichier clients (Excel ou CSV)",
                 type=["xlsx", "csv"]
             )
+            with st.spinner(
+                    "🗺️ Préparation de la carte environnementale... "
+                    "Veuillez patienter."
+                ):
+                # Carte principale
+                m3 = leafmap.Map(center=[7.5, -5.5], zoom=7)
 
-            # Carte principale
-            m3 = leafmap.Map(center=[7.5, -5.5], zoom=7)
-
-            # -------------------------
-            # 🌍 AJOUT DES COUCHES SIG
-            # -------------------------
-            m3.add_gdf(sanitize_strings(bassin), layer_name="Bassin versant", style={"color": "orange"})
-            m3.add_gdf(sanitize_strings(hydro), layer_name="Reseau hydro", style={"color": "gray"})
-            m3.add_gdf(sanitize_strings(forets), layer_name="Aires protégées", style={"color": "green"})
-            m3.add_gdf(sanitize_strings(integrale), layer_name="Reserves integrale", style={"color": "red"})
-            m3.add_gdf(sanitize_strings(parcs), layer_name="Reserves", style={"color": "red"})
-            m3.add_gdf(sanitize_strings(waterways), layer_name="Cours d'eau", style={"color": "blue"})
-            m3.add_gdf(sanitize_strings(lake), layer_name="Lacs", style={"color": "navy"})
-            m3.add_gdf(sanitize_strings(kba), layer_name="Zones KBA",
-                    style={"color": "purple", "fillColor": "purple", "fillOpacity": 0.2})
+                # -------------------------
+                # 🌍 AJOUT DES COUCHES SIG
+                # -------------------------
+                m3.add_gdf(sanitize_strings(bassin), layer_name="Bassin versant", style={"color": "orange"})
+                m3.add_gdf(sanitize_strings(hydro), layer_name="Reseau hydro", style={"color": "gray"})
+                m3.add_gdf(sanitize_strings(forets), layer_name="Aires protégées", style={"color": "green"})
+                m3.add_gdf(sanitize_strings(integrale), layer_name="Reserves integrale", style={"color": "red"})
+                m3.add_gdf(sanitize_strings(parcs), layer_name="Reserves", style={"color": "red"})
+                m3.add_gdf(sanitize_strings(waterways), layer_name="Cours d'eau", style={"color": "blue"})
+                m3.add_gdf(sanitize_strings(lake), layer_name="Lacs", style={"color": "navy"})
+                m3.add_gdf(sanitize_strings(kba), layer_name="Zones KBA",
+                        style={"color": "purple", "fillColor": "purple", "fillOpacity": 0.2})
 
             if uploaded_file is not None:
 
@@ -1134,7 +1149,34 @@ if st.session_state["authentication_status"]:
 
                 st.warning(f"{len(clients_kba)} clients situés dans une zone KBA ⚠️")
 
-                            # -------------------------
+        # =====================================================
+        # 👥 AFFICHAGE DES CLIENTS
+        # =====================================================
+
+                if afficher:
+
+                    for _, row in df_clients.iterrows():
+
+                        color = get_color(
+                            row["secteur"]
+                        )
+
+                        m3.add_marker(
+                            location=[
+                                row["latitude"],
+                                row["longitude"]
+                            ],
+                            popup=(
+                                f"{row.get('nom', 'Client')}"
+                                f"<br>Secteur: {row['secteur']}"
+                            ),
+                            icon=folium.Icon(
+                                color=color,
+                                icon="info-sign"
+                            )
+                        )
+
+            # -------------------------
             # 🔎 EXTRACTIONS ESG — ZONES SENSIBLES
             # -------------------------
             st.markdown("---")
@@ -1211,7 +1253,7 @@ if st.session_state["authentication_status"]:
                 #         st.write("🌍 Exemples de zones Excel :",
                 #                 especes_test["Zone"].dropna().unique()[:10].tolist() if "Zone" in especes_test.columns else "PAS DE COLONNE 'Zone'")
 
-                      clients_extraits = enrich_with_kba_species(
+                    clients_extraits = enrich_with_kba_species(
                          clients_extraits,
                          name_field,
                          SPECIES_PATH
@@ -1286,7 +1328,7 @@ if st.session_state["authentication_status"]:
                     key=f"dl_extract_{normalize_name(zone_choisie)}"
                 )
 
-                    # 🗺️ Marqueurs sur la carte
+                 # 🗺️ Marqueurs sur la carte
                 couleur = "red" if mode_extraction.startswith("📍") else "orange"
                 for _, row in clients_extraits.iterrows():
                     popup_txt = f"{row.get('nom', 'Client')}"
@@ -1297,20 +1339,6 @@ if st.session_state["authentication_status"]:
                             popup=popup_txt,
                             icon=folium.Icon(color=couleur, icon="info-sign")
                         )
-
-
-                if afficher:
-                    # ✅ Ajout des clients (cluster)
-                    for _, row in df_clients.iterrows():
-
-                        color = get_color(row["secteur"])
-
-                        m3.add_marker(
-                            location=[row["latitude"], row["longitude"]],
-                            popup=f"{row.get('nom','Client')}<br>Secteur: {row['secteur']}",
-                            icon=folium.Icon(color=color, icon="info-sign")
-                        )
-
                 # Centrage auto
                 if len(df_clients) > 0:
                     m3.center = [
@@ -1323,11 +1351,13 @@ if st.session_state["authentication_status"]:
                 with st.expander("Voir les données clients"):
                     st.dataframe(df_clients)
 
+            
+
             else:
                 st.info("Veuillez importer un fichier pour afficher les clients")
 
             # ✅ IMPORTANT : affichage final UNE SEULE FOIS
-                m3.add_legend(
+            m3.add_legend(
                 title="Secteurs",
                 legend_dict={
                     "Risque élevé": "red",
@@ -1343,6 +1373,13 @@ if st.session_state["authentication_status"]:
 
             with NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8") as tmp:
                 fname = tmp.name
+
+            st.info(
+                        "🗺️ Affichage de la carte en cours. "
+                        "Le chargement peut prendre quelques secondes "
+                        "selon la qualité de votre connexion.",
+                        icon="⏳"
+                    )
 
             m3.save(fname)
 
