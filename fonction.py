@@ -840,6 +840,7 @@ def get_kba_species_key(kba_name):
         "foret classee de cavally et goin debe": "cavally goin debe",
         "parc national du mont peko": "mont peko",
         "parc national de la marahoue": "marahoue",
+        "foret classee des mont gueoule et mont glo reserves": "gueoule glo",
         "foret classee des monts gueoule et mont glo reserves": "gueoule glo",
         "reserve integrale du mont nimba": "mont nimba",
         "parc national de la comoe": "comoe",
